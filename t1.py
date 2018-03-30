@@ -1,3 +1,4 @@
+import functools
 import pandas as pd
 import os
 
@@ -305,7 +306,84 @@ def insert_db(data, tablename='trades', con=None):
         connection.close()
     return
 
-def get_df_sqlite():
+
+def get_instrumentids():
+    # SELECT DISTINCT  instrumentid from ranks;
+    tablename = 'ranks'
+    con = 'sqlite:///demo.sqlite'
+    metadata = MetaData()
+    engine = create_engine(con)
+    # connection = engine.connect()
+
+    from pandas.io import sql
+    # cnx = engine.connect().connection # option-1
+    cnx = engine.raw_connection()  # option-2
+    sql_cmd = "SELECT DISTINCT  instrumentid from ranks WHERE report_date >= date('2018-03-27') and report_date < date('2018-03-28');"
+    df = pd.read_sql(sql=sql_cmd, con=engine)
+    print(df)
+    df.to_dict()
+    ans = df['instrumentid'].drop_duplicates().values.tolist()
+    ans = list(ans)
+    def numeric_compare(x, y):
+        return x - y
+    # ans = ans.sort(cmp=numeric_compare);
+
+    # def numeric_compare(x, y):
+    #     return x - y
+    #
+    # sorted([5, 2, 4, 1, 3], cmp=numeric_compare)
+    # some_list.sort(cmp=my_comparator)
+    ans.append('all')
+    ans = sorted(ans, key=lambda x: x)
+    ans.append('all')
+    # def num_cmp(x, y):
+    #     x = int(x[-4:])
+    #     y = int(y[-4:])
+    #     return x - y
+    # test = sorted(ans, key=functools.cmp_to_key(num_cmp))
+    for ins in ans:
+        print(ins)
+    # sorted(student_tuples, key=lambda student: student[0])
+    # ans = df.to_records(index=False)
+    # print(ans)
+    cnx.close()
+    return ans
+
+def get_df_by_instrument(instrument=None):
+    tablename = 'ranks'
+    con = 'sqlite:///demo.sqlite'
+    metadata = MetaData()
+    engine = create_engine(con)
+    # connection = engine.connect()
+
+    from pandas.io import sql
+    # cnx = engine.connect().connection # option-1
+    cnx = engine.raw_connection()  # option-2
+    if instrument:
+        sql_cmd = "SELECT * FROM ranks WHERE report_date >= date('2018-03-27') and report_date " \
+                  "< date('2018-03-28') and instrumentid == '{instrument}' ;".format(instrument=instrument)
+        df = pd.read_sql(sql=sql_cmd, con=engine)
+    else:
+        sql_cmd = "SELECT * FROM ranks WHERE report_date >= date('2018-03-27') and report_date < date('2018-03-28');"
+        df = pd.read_sql(sql=sql_cmd, con=engine)
+        df = df[['PARTICIPANTABBR1', 'CJ1', 'CJ1_CHG']].groupby(['PARTICIPANTABBR1', ])['CJ1', 'CJ1_CHG'].sum() \
+        .sort_values(by=['CJ1'], ascending=False).reset_index().head(20)
+
+    # df = pd.read_sql(sql=sql_cmd, con=engine)
+    col_map = {'CJ1_CHG': '比上交易日增减', 'rank': '名次', 'CJ2': '持买单量2', 'CJ3_CHG': '比上交易日增减3',
+               'PARTICIPANTABBR2': '期货公司会员简称2',
+               'CJ1': '成交量', 'CJ3': '持卖单量3', 'PARTICIPANTABBR3': '期货公司会员简称3', 'CJ2_CHG': '比上交易日增减2',
+               'PARTICIPANTABBR1': '期货公司会员简称'}
+    df = df[['PARTICIPANTABBR1','CJ1', 'CJ1_CHG']]
+    df.rename(columns=lambda x: x.strip(), inplace=True)
+    df.rename(columns=col_map, inplace=True)
+    return df
+
+def get_df_sqlite(instrument=None):
+    first_ans = pd.read_csv('shfe0327.csv', encoding='gbk')
+    print(first_ans.columns)
+    df_report_date = '2018-03-27'
+    return first_ans, df_report_date
     # insert_db(df, tablename='ranks', con='sqlite:///exchange.sqlite')
     tablename = 'ranks'
     con = 'sqlite:///demo.sqlite'
@@ -316,7 +394,10 @@ def get_df_sqlite():
     from pandas.io import sql
     # cnx = engine.connect().connection # option-1
     cnx = engine.raw_connection()  # option-2
-    sql_cmd = "SELECT * FROM ranks WHERE report_date >= date('2018-03-27') and report_date < date('2018-03-28');"
+    if instrument:
+        sql_cmd = "SELECT * FROM ranks WHERE report_date >= date('2018-03-27') and report_date < date('2018-03-28');"
+    else:
+        sql_cmd = "SELECT * FROM ranks WHERE report_date >= date('2018-03-27') and report_date < date('2018-03-28');"
     df = pd.read_sql(sql=sql_cmd, con=engine)
     # print(df.head())
     # print(df)
@@ -350,14 +431,19 @@ def get_df_sqlite():
     # col_names = df.columns.tolist()
     # first_ans.rename()
     # print(result)
-    print(first_ans)
+    print(first_ans.columns)
+    # df.columns
     # xx = sql.read_frame("SELECT * FROM ranks", cnx)
     # cnx.close()
     # print(xx.head())
+    first_ans.to_csv('shfe0327.csv', index=False, encoding='gbk')
     return first_ans, df_report_date
 
 def main():
-    get_df_sqlite()
+    get_df_by_instrument()
+    # get_df_by_instrument(instrument='cu1804')
+    # get_instrumentids()
+    # get_df_sqlite()
     # test_plotly()
 
 
